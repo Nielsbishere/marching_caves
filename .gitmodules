@@ -1,0 +1,3 @@
+[submodule "igx_raytracing"]
+	path = igx_raytracing
+	url = https://github.com/Nielsbishere/igx_raytracing
