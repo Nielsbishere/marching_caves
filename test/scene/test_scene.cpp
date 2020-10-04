@@ -1,5 +1,6 @@
 #include "test_scene.hpp"
 #include "geometry/tetrahedron.hpp"
+#include <input/keyboard.hpp>
 
 namespace igx::rt {
 
@@ -21,34 +22,39 @@ namespace igx::rt {
 			Material{ { 0, 0, 0 },		{ 0, 0, 0 },				{ 0, 0, 0 },	.25f,	.5f,	1 }
 		);
 
-		for(usz i = 0; i < dynamicObjects.size(); ++i)
-			dynamicObjects[i] = addGeometry(Triangle{}, i & 7);
+		for(u32 i = 0; i < u32(dynamicObjects.size()); ++i)
+			dynamicObjects[i] = addGeometry(Triangle{}, (i / 12) % 6);
 
 		update(0);
 	}
 
-	static inline Triangle displace(const Triangle &tri, usz i, f64 t) {
-
-		f32 tf = f32(sin(t * 0.5f) * 0.5 + 0.5) * 2;
-		Vec3f32 dir = Tetrahedron::dirFromSide[i >> 2] * tf;
-
-		return Triangle {
-			tri.p0 + dir,
-			tri.p1 + dir,
-			tri.p2 + dir
-		};
-	}
-
 	void TestScene::update(f64 dt) {
 
-		const auto &tris = Tetrahedron::localTriangles;
+		static constexpr Array<Vec3f32, 6> dirFromSide = {
+			Vec3f32(-1,  0,  0),
+			Vec3f32(0,  0,  -1),
+			Vec3f32(1,  0,  0),
+			Vec3f32(0,  1,  0),
+			Vec3f32(0,  -1,  0),
+			Vec3f32(0,  0,  1)
+		};
 
-		usz i{};
+		f32 tf = f32(sin(time * 0.5f) * 0.5 + 0.5) * 2;
 
-		for (const Triangle &tri : tris) {
-			const Triangle displaced = displace(tri, i, time);
-			SceneGraph::update(dynamicObjects[i], displaced);
-			++i;
+		usz j = 0;
+
+		for (usz i = 0; i < 6; ++i) {
+
+			Vec3f32 center = dirFromSide[i] * tf;
+
+			Tetrahedron cubeDivision(Tetrahedron::HexahedronDivision(i), center);
+
+			//for(const Tetrahedron &div0 : cubeDivision.splitTetra())
+				for(const Hexahedron &div1 : cubeDivision.splitHexa())
+					for (const igx::Triangle &tri : div1.triangulate()) {
+						SceneGraph::update(dynamicObjects[j], tri);
+						++j;
+					}
 		}
 
 		time += dt;

@@ -7,7 +7,7 @@ namespace igx::rt {
 	class TestScene : public SceneGraph {
 
 		f64 time{};
-		Array<u64, irmc::Tetrahedron::localTriangles.size()> dynamicObjects;
+		Array<u64, 6 * 2 * 4 * 6> dynamicObjects;
 
 	public:
 
