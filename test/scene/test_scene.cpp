@@ -1,5 +1,5 @@
 #include "test_scene.hpp"
-#include "geometry/tetrahedron.hpp"
+#include "geometry/marching_hexahedra.hpp"
 #include <input/keyboard.hpp>
 
 namespace igx::rt {
@@ -22,11 +22,45 @@ namespace igx::rt {
 			Material{ { 0, 0, 0 },		{ 0, 0, 0 },				{ 0, 0, 0 },	.25f,	.5f,	1 }
 		);
 
-		for(u32 i = 0; i < u32(dynamicObjects.size()); ++i)
-			dynamicObjects[i] = addGeometry(Triangle{}, (i / 12) % 6);
-
 		update(0);
 	}
+
+	//Simple hills
+
+	static constexpr f32 pi2 = f32(PI_CONST * 2);
+
+	#define USE_TETRAHEDRA
+
+	#ifndef USE_TETRAHEDRA
+
+	static constexpr u16 gridPoints = 16;
+	static constexpr f32 scale = 1.f / gridPoints, maxScale = f32(gridPoints - 1) / gridPoints;
+
+	#endif
+
+	f32 currentT = 0;
+
+	inline f32 testVolume(const Vec3f32 &p) {
+
+		#ifndef USE_TETRAHEDRA
+
+		//Edges
+
+		if (p.x < scale || p.y < scale || p.z < scale)
+			return 0;
+
+		if (p.x >= maxScale || p.y >= maxScale || p.z >= maxScale)
+			return 0;
+
+		//
+
+		#endif
+
+		f32 hills = cos(p.x * pi2) * cos(p.z * pi2) * cos(currentT * pi2 * 0.5f);
+		return hills - p.y;	
+	}
+
+	static constexpr MarchingHexahedra<testVolume> marchingHexahedra;
 
 	void TestScene::update(f64 dt) {
 
@@ -39,23 +73,70 @@ namespace igx::rt {
 			Vec3f32(0,  0,  1)
 		};
 
-		f32 tf = f32(sin(time * 0.5f) * 0.5 + 0.5) * 2;
+		currentT = f32(time);
 
-		usz j = 0;
+		usz tris = 0;
+
+		#ifdef USE_TETRAHEDRA
 
 		for (usz i = 0; i < 6; ++i) {
 
-			Vec3f32 center = dirFromSide[i] * tf;
+			auto cubeDivision = Tetrahedron(Tetrahedron::HexahedronDivision(i));
 
-			Tetrahedron cubeDivision(Tetrahedron::HexahedronDivision(i), center);
+			for(const Tetrahedron &div0 : cubeDivision.splitTetra())
+				for(const Tetrahedron &div1 : div0.splitTetra())
+					for(const Tetrahedron &div2 : div1.splitTetra())
+						for(const Tetrahedron &div3 : div2.splitTetra())
+							for(const Tetrahedron &div4 : div3.splitTetra())
+								for(const Hexahedron &div5 : div4.splitHexa())
+									for(const Triangle &tri : marchingHexahedra.triangulate(div5))
 
-			//for(const Tetrahedron &div0 : cubeDivision.splitTetra())
-				for(const Hexahedron &div1 : cubeDivision.splitHexa())
-					for (const igx::Triangle &tri : div1.triangulate()) {
-						SceneGraph::update(dynamicObjects[j], tri);
-						++j;
-					}
+										if (dynamicObjects.size() < tris + 1) {
+											dynamicObjects.push_back(addGeometry(tri, tris % 6));
+											++tris;
+										}
+										else {
+											SceneGraph::update(dynamicObjects[tris], tri);
+											++tris;
+										}
 		}
+
+		#else
+
+		for(u8 i = 0; i < gridPoints; ++i)
+			for(u8 j = 0; j < gridPoints; ++j)
+				for (u8 k = 0; k < gridPoints; ++k) {
+
+					Vec3f32 left(i, j, k);
+
+					Hexahedron hex = Cube{ left * scale, (left + 1) * scale };
+
+					for(const Triangle &tri : marchingHexahedra.triangulate(hex))
+
+						if (dynamicObjects.size() < tris + 1) {
+							dynamicObjects.push_back(addGeometry(tri, (k + j * gridPoints + i * gridPoints * gridPoints) % 6));
+							++tris;
+						}
+						else {
+							SceneGraph::update(dynamicObjects[tris], tri);
+							++tris;
+						}
+				}
+
+		#endif
+
+		//Clean previously allocated tris we don't need anymore
+
+		List<u64> deletedIndices;
+
+		for (usz i = dynamicObjects.size() - 1; i >= tris && i != usz_MAX; --i)
+			deletedIndices.push_back(dynamicObjects[i]);
+
+		SceneGraph::del(deletedIndices);
+
+		dynamicObjects.resize(tris);
+
+		//
 
 		time += dt;
 
