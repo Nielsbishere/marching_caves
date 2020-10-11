@@ -201,7 +201,7 @@ namespace irmc {
 					normals[i] = n(p);
 					values[i] = d(p);
 
-					index |= u8(values[i] < isoLevel + epsilon) << i;
+					index |= u8(values[i] < isoLevel + 1e-6f) << i;
 				}
 			}
 
@@ -229,7 +229,7 @@ namespace irmc {
 				if constexpr (isNormal)
 					return interpolateEdge(normals, edge >> 3, edge & 0x7);
 
-				return interpolateEdge(hexa.positions, edge >> 3, edge & 0x7);
+				else return interpolateEdge(hexa.positions, edge >> 3, edge & 0x7);
 			}
 
 			//C++ defaults
@@ -247,9 +247,6 @@ namespace irmc {
 
 		static inline List<igx::Triangle> triangulate(const Hexahedron &hexa, f32 isoLevel = 0) {
 		
-			//TODO: Some combos produce invalid results
-			//TODO: The growing is reversed
-
 			Cell cell = Cell(hexa, isoLevel);
 
 			u16 edge = mcEdgeTable[cell.index];
@@ -259,20 +256,14 @@ namespace irmc {
 
 			//Edge lookups
 
-			Vec3f32 p[12]/*, n[12]*/;		//TODO: Accept normal per tri
+			Vec3f32 p[12], n[12];
 
 			for (u8 i = 0; i < 12; ++i)
 				if (edge & (1 << i)) {
-
 					p[i] = cell.interpolate(i);
-
-					for(u8 j = 0; j < i; ++j)
-						if (p[j] == p[i]) {
-							cell.interpolate(i);
-							cell.interpolate(j);
-						}
-
+					n[i] = cell.interpolate<true>(i);
 				}
+
 			//Tri lookups
 
 			u64 tris = mcTriTable[cell.index];
@@ -291,7 +282,7 @@ namespace irmc {
 				u8 p1 = u8(tri) >> 4;
 				u64 p2 = tri >> 8;
 
-				res.push_back({ p[p0], p[p1], p[p2] });
+				res.push_back(igx::Triangle(p[p0], p[p1], p[p2], n[p0], n[p1], n[p2]));
 			}
 
 			return res;

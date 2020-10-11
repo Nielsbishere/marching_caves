@@ -19,7 +19,9 @@ namespace igx::rt {
 			Material{ { 1, 1, 0 },		{ 0.05f, 0.05f, 0 },		{ 0, 0, 0 },	0,		1,		1 },
 			Material{ { 0, 1, 1 },		{ 0, 0.05f, 0.05f },		{ 0, 0, 0 },	0,		1,		1 },
 			Material{ { 0, 0, 0 },		{ 0, 0, 0 },				{ 0, 0, 0 },	1,		0,		1 },
-			Material{ { 0, 0, 0 },		{ 0, 0, 0 },				{ 0, 0, 0 },	.25f,	.5f,	1 }
+			Material{ { 0, 0, 0 },		{ 0, 0, 0 },				{ 0, 0, 0 },	.25f,	.5f,	1 },
+
+			Light(Vec3f32(-1, -1, -1).normalize(), Vec3f32(1))
 		);
 
 		update(0);
@@ -29,34 +31,19 @@ namespace igx::rt {
 
 	static constexpr f32 pi2 = f32(PI_CONST * 2);
 
-	#define USE_TETRAHEDRA
+	//#define USE_TETRAHEDRA
 
 	#ifndef USE_TETRAHEDRA
 
 	static constexpr u16 gridPoints = 16;
-	static constexpr f32 scale = 1.f / gridPoints, maxScale = f32(gridPoints - 1) / gridPoints;
+	static constexpr f32 scale = 1.f / gridPoints;
 
 	#endif
 
 	f32 currentT = 0;
 
 	inline f32 testVolume(const Vec3f32 &p) {
-
-		#ifndef USE_TETRAHEDRA
-
-		//Edges
-
-		if (p.x < scale || p.y < scale || p.z < scale)
-			return 0;
-
-		if (p.x >= maxScale || p.y >= maxScale || p.z >= maxScale)
-			return 0;
-
-		//
-
-		#endif
-
-		f32 hills = cos(p.x * pi2) * cos(p.z * pi2) * cos(currentT * pi2 * 0.5f);
+		f32 hills = cos(p.x * pi2) * cos(p.z * pi2) * cos(currentT * pi2 * 0.05f);
 		return hills - p.y;	
 	}
 
@@ -88,17 +75,19 @@ namespace igx::rt {
 					for(const Tetrahedron &div2 : div1.splitTetra())
 						for(const Tetrahedron &div3 : div2.splitTetra())
 							for(const Tetrahedron &div4 : div3.splitTetra())
-								for(const Hexahedron &div5 : div4.splitHexa())
-									for(const Triangle &tri : marchingHexahedra.triangulate(div5))
+								for(const Tetrahedron &div5 : div4.splitTetra())
+									for(const Tetrahedron &div6 : div5.splitTetra())
+										for(const Hexahedron &div7 : div6.splitHexa())
+											for(const Triangle &tri : marchingHexahedra.triangulate(div7))
 
-										if (dynamicObjects.size() < tris + 1) {
-											dynamicObjects.push_back(addGeometry(tri, tris % 6));
-											++tris;
-										}
-										else {
-											SceneGraph::update(dynamicObjects[tris], tri);
-											++tris;
-										}
+												if (dynamicObjects.size() < tris + 1) {
+													dynamicObjects.push_back(addGeometry(tri, 0));
+													++tris;
+												}
+												else {
+													SceneGraph::update(dynamicObjects[tris], tri);
+													++tris;
+												}
 		}
 
 		#else
@@ -114,7 +103,7 @@ namespace igx::rt {
 					for(const Triangle &tri : marchingHexahedra.triangulate(hex))
 
 						if (dynamicObjects.size() < tris + 1) {
-							dynamicObjects.push_back(addGeometry(tri, (k + j * gridPoints + i * gridPoints * gridPoints) % 6));
+							dynamicObjects.push_back(addGeometry(tri, 0));
 							++tris;
 						}
 						else {
