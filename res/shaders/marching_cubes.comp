@@ -1,0 +1,189 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#extension GL_ARB_gpu_shader_int64 : require
+#include "terrain_volume.glsl"
+#include "marching_lut.glsl"
+
+struct Triangle {
+
+	vec3 p0;
+	uint n0;
+
+	vec3 p1;
+	uint n1;
+
+	vec3 p2;
+	uint n2;
+};
+
+layout(binding=0, std140) buffer TriangleBuffer {
+	Triangle triBuffer[];
+};
+
+struct SceneInfo {
+
+	uint lightCount;
+	uint materialCount;
+	uint triangleCount;
+	uint sphereCount;
+
+	uint cubeCount;
+	uint planeCount;
+	uint directionalLightCount;
+	uint spotLightCount;
+
+	uint pointLightCount;
+
+};
+
+layout(binding=1, std140) buffer SceneData {
+	SceneInfo sceneInfo;
+};
+
+layout(binding=0) uniform MarchingInfo {
+
+	vec3 invScale;
+	float isoLevel;
+
+	uvec3 dim;
+	float t;
+
+};
+
+struct Cell {
+
+	vec4 nv[8];
+
+	uint lut;
+
+};
+
+const float delta = 1e-1;
+const float epsilon = 1e-6;
+
+float axis(vec3 p, vec3 ax) {
+	return d(p + ax, t) - d(p - ax, t);
+}
+
+vec3 n(vec3 p, vec3 d) {
+
+	vec3 N = vec3(
+		axis(p, vec3(d.x, 0, 0)),
+		axis(p, vec3(0, d.y, 0)),
+		axis(p, vec3(0, 0, d.z))
+	);
+
+	if(N == vec3(0))
+		return vec3(0, 1, 0);
+
+	return normalize(N);
+}
+
+uvec3 posAt(uint i) {
+	uint j = mcCubeIndices[i];
+	return (uvec3(j) >> uvec3(2, 1, 0)) & 1;
+}
+
+vec3 cvtPos(uvec3 off, uint i) {
+	return (off + posAt(i)) * invScale;
+}
+
+Cell getCell(uvec3 p) {
+
+	Cell cell;
+	cell.lut = 0;
+
+	for(uint i = 0; i < 8; ++i) {
+
+		vec3 pf = cvtPos(p, i);
+
+		cell.nv[i] = vec4(n(pf, invScale * delta), d(pf, t));
+
+		cell.lut |= uint(cell.nv[i].w < isoLevel) << i;
+	}
+
+	return cell;
+}
+
+vec3 interpolateEdge(Cell cell, vec3 p0, vec3 p1, uint e0, uint e1) {
+
+	float	v0 = cell.nv[e0].w, v1 = cell.nv[e1].w;
+
+	float isoToP0 = isoLevel - v0;
+	float p1ToP0 = v1 - v0;
+
+	return mix(p0, p1, isoToP0 / p1ToP0);
+}
+
+vec3 interpolateNormal(Cell cell, uint i) {
+
+	uint edge = mcEdges[i];
+	uint e0 = edge >> 3, e1 = edge & 7;
+
+	return interpolateEdge(cell, cell.nv[e0].xyz, cell.nv[e1].xyz, e0, e1);
+}
+
+vec3 interpolatePos(Cell cell, uint i, uvec3 p0) {
+
+	uint edge = mcEdges[i];
+	uint e0 = edge >> 3, e1 = edge & 7;
+
+	return interpolateEdge(cell, cvtPos(p0, e0), cvtPos(p0, e1), e0, e1);
+}
+
+uint encodeSpheremap(vec3 n) {
+	return packHalf2x16(normalize(n.xy) * sqrt(-n.z * 0.5 + 0.5));
+}
+
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+void main() {
+
+	uvec3 p0 = gl_GlobalInvocationID;
+
+	if(p0.x >= dim.x || p0.y >= dim.y || p0.z >= dim.z)
+		return;
+
+	Cell cell = getCell(p0);
+
+	uint edge = uint(mcEdgeTable[cell.lut >> 2] >> (12 * (cell.lut & 3))) & 0xFFF;
+
+	if (edge == 0)
+		return;
+
+	//Edge lookups
+
+	vec3 p[12], n[12];
+
+	for (uint i = 0; i < 12; ++i)
+		if ((edge & (1 << i)) != 0) {
+			p[i] = interpolatePos(cell, i, p0);
+			n[i] = interpolateNormal(cell, i);
+		}
+
+	//Tri lookups
+
+	uint64_t triData = mcTriTable[cell.lut];
+
+	for (uint j = 0; j < 5; ++j) {
+
+		uint tri = uint(triData >> (12 * j)) & 0xFFF;
+
+		if (tri == 0)
+			break;
+
+		uvec3 p012 = (uvec3(tri) >> uvec3(0, 4, 8)) & 0xF;
+		
+		uint triId = atomicAdd(sceneInfo.triangleCount, 1);
+		triBuffer[triId] = Triangle(
+
+			p[p012.x],
+			encodeSpheremap(n[p012.x]),
+
+			p[p012.y],
+			encodeSpheremap(n[p012.y]),
+
+			p[p012.z],
+			encodeSpheremap(n[p012.z])
+		);
+	}
+}

@@ -1,4 +1,4 @@
-#include "geometry/tetrahedron.hpp"
+#include "geometry/tetron.hpp"
 
 namespace irmc {
 
@@ -22,14 +22,14 @@ namespace irmc {
 		return Vec3f32(f32(i & 1), f32((i >> 1) & 1), f32(i >> 2)) + center;
 	}
 
-	static inline constexpr Vec3f32 processIndex(u16 i, const Vec3f32 &center, const Hexahedron &hex) {
+	static inline constexpr Vec3f32 processIndex(u16 i, const Vec3f32 &center, const Hexon &hex) {
 		Vec3f32 d = processIndex(i);
 		return hex.get(d.x, d.y, d.z) + center;
 	}
 
 	//https://demonstrations.wolfram.com/ThreePyramidsThatFormACube/
 	template<typename ...args>
-	static constexpr inline void divideHexahedron(Tetrahedron::HexahedronDivision side, const Vec3f32 &center, Tetrahedron::Vert4 &out, const args &...arg) {
+	static constexpr inline void divideHexon(Tetron::HexonDivision side, const Vec3f32 &center, Tetron::Vert4 &out, const args &...arg) {
 
 		//LUT hexahedron to points
 
@@ -49,24 +49,24 @@ namespace irmc {
 		out[3] = processIndex(points[3], center, arg...);
 	}
 
-	Tetrahedron::Tetrahedron(const Vert4 &vertices) { copy(this, vertices); }
+	Tetron::Tetron(const Vert4 &vertices) { copy(this, vertices); }
 
-	Tetrahedron::Tetrahedron(const igx::Cube &cube, HexahedronDivision side, const Vec3f32 &center): 
-		Tetrahedron(Hexahedron(cube), side, center) {}
+	Tetron::Tetron(const igx::Cube &cube, HexonDivision side, const Vec3f32 &center): 
+		Tetron(Hexon(cube), side, center) {}
 
-	Tetrahedron::Tetrahedron(const Hexahedron &hex, HexahedronDivision side, const Vec3f32 &center) {
-		divideHexahedron(side, center, vertices, hex);
+	Tetron::Tetron(const Hexon &hex, HexonDivision side, const Vec3f32 &center) {
+		divideHexon(side, center, vertices, hex);
 	}
 
-	Tetrahedron::Tetrahedron(HexahedronDivision side, const Vec3f32 &center) {
-		divideHexahedron(side, center, vertices);
+	Tetron::Tetron(HexonDivision side, const Vec3f32 &center) {
+		divideHexon(side, center, vertices);
 	}
 
-	igx::Triangle Tetrahedron::triangle(usz a, usz b, usz c) const {
+	igx::Triangle Tetron::triangle(usz a, usz b, usz c) const {
 		return igx::Triangle{ vertices[a], vertices[b], vertices[c] };
 	}
 
-	Array<igx::Triangle, 4> Tetrahedron::triangulate() const {
+	Array<igx::Triangle, 4> Tetron::triangulate() const {
 		return {
 			triangle(0, 1, 2), triangle(1, 2, 3),
 			triangle(0, 2, 3), triangle(0, 1, 3)
@@ -76,7 +76,7 @@ namespace irmc {
 	//Optimized and overcomplicated version of
 	//https://gist.github.com/KitVanDeBunt/96cbd4526cbfa9c6fddbd29713d7a984
 	//
-	Array<Tetrahedron, 2> Tetrahedron::splitTetra() const {
+	Array<Tetron, 2> Tetron::splitTetra() const {
 
 		static constexpr u32 edges[4] = {
 			0'010203, 0'101213,
@@ -125,27 +125,27 @@ namespace irmc {
 
 		//Interp
 
-		Array<Tetrahedron, 2> tetrahedra;
+		Array<Tetron, 2> tetra;
 
 		const Vec3f32 cut = e0.lerp(e1, .5f);
 
-		tetrahedra[0][0] = n0;
-		tetrahedra[0][1] = e0;
-		tetrahedra[0][2] = n1;
-		tetrahedra[0][3] = cut;
+		tetra[0][0] = n0;
+		tetra[0][1] = e0;
+		tetra[0][2] = n1;
+		tetra[0][3] = cut;
 
-		tetrahedra[1][0] = n0;
-		tetrahedra[1][1] = e1;
-		tetrahedra[1][2] = n1;
-		tetrahedra[1][3] = cut;
+		tetra[1][0] = n0;
+		tetra[1][1] = e1;
+		tetra[1][2] = n1;
+		tetra[1][3] = cut;
 
-		return tetrahedra;
+		return tetra;
 	}
 
 	//Optimized and overcomplicated version of
 	//https://gist.github.com/KitVanDeBunt/96cbd4526cbfa9c6fddbd29713d7a984#file-subdevidetetrahedra-cpp-L423
 	//
-	Array<Hexahedron, 4> Tetrahedron::splitHexa() const {
+	Array<Hexon, 4> Tetron::splitHexa() const {
 
 		//Every hexahedra gets:
 		//1 edge point of the tetrahedron
@@ -155,11 +155,11 @@ namespace irmc {
 
 		const Vec3f32 center = getCenter();
 
-		Array<Hexahedron, 4> hexahedra;
+		Array<Hexon, 4> hexahedra;
 
 		for (u8 i = 0; i < 4; ++i) {
 
-			Hexahedron &hex = hexahedra[i];
+			Hexon &hex = hexahedra[i];
 			
 			u8 i1 = (i + 1) & 3;
 			u8 i2 = (i + 2) & 3;
@@ -181,8 +181,17 @@ namespace irmc {
 		return hexahedra;
 	}
 
-	Tetrahedron::Tetrahedron(const Tetrahedron &other) { copy(this, other); }
-	Tetrahedron::Tetrahedron(Tetrahedron &&other) { copy(this, other); }
-	Tetrahedron &Tetrahedron::operator=(const Tetrahedron &other) { copy(this, other); return *this; }
-	Tetrahedron &Tetrahedron::operator=(Tetrahedron &&other) { copy(this, other); return *this; }
+	void Tetron::setCenter(const Vec3f32 &center) {
+
+		Vec3f32 oldCenter = getCenter();
+
+		for (usz i = 0; i < 4; ++i)
+			vertices[i] = vertices[i] - oldCenter + center;
+
+	}
+
+	Tetron::Tetron(const Tetron &other) { copy(this, other); }
+	Tetron::Tetron(Tetron &&other) { copy(this, other); }
+	Tetron &Tetron::operator=(const Tetron &other) { copy(this, other); return *this; }
+	Tetron &Tetron::operator=(Tetron &&other) { copy(this, other); return *this; }
 }

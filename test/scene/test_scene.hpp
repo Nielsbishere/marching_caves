@@ -1,17 +1,18 @@
 #pragma once
 #include "helpers/scene_graph.hpp"
-#include "geometry/tetrahedron.hpp"
+#include "geometry/tetron.hpp"
+#include "task/marching_cubes_task.hpp"
 
-namespace igx::rt {
+namespace irmc {
 
-	class TestScene : public SceneGraph {
+	class TestScene : public igx::SceneGraph {
 
 		f64 time{};
 		List<u64> dynamicObjects;
 
 	public:
 
-		TestScene(ui::GUI &gui, FactoryContainer &factory);
+		TestScene(igx::ui::GUI &gui, igx::FactoryContainer &factory);
 
 		void update(f64 dt) override;
 

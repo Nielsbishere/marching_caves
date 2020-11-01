@@ -6,7 +6,7 @@ namespace irmc {
 	//A hexahedron is defined as 8 points
 	//Where each edge is not 0 units
 	//
-	union Hexahedron {
+	union Hexon {
 
 		using Vert8 = Vec3f32[8];
 		using Vert2x2x2 = Vec3f32[2][2][2];
@@ -16,10 +16,10 @@ namespace irmc {
 
 		//Helpers for a hexahedron
 
-		Hexahedron() = default;
-		Hexahedron(const igx::Cube &cube);
-		Hexahedron(const Vert8 &positions);
-		Hexahedron(const Vert2x2x2 &pos);
+		Hexon() = default;
+		Hexon(const igx::Cube &cube);
+		Hexon(const Vert8 &positions);
+		Hexon(const Vert2x2x2 &pos);
 
 		inline Vec3f32 &get(bool isRight, bool isTop, bool isFront) {
 			return pos[isRight][isTop][isFront];
@@ -39,11 +39,11 @@ namespace irmc {
 
 		//C++ stuff due to C-Style arrays
 
-		~Hexahedron() = default;
-		Hexahedron(const Hexahedron&);
-		Hexahedron(Hexahedron&&);
-		Hexahedron &operator=(const Hexahedron&);
-		Hexahedron &operator=(Hexahedron&&);
+		~Hexon() = default;
+		Hexon(const Hexon&);
+		Hexon(Hexon&&);
+		Hexon &operator=(const Hexon&);
+		Hexon &operator=(Hexon&&);
 
 	};
 

@@ -1,4 +1,5 @@
 #include "rt/raytracing_interface.hpp"
+#include "task/marching_cubes_task.hpp"
 #include "scene/test_scene.hpp"
 
 //Create window and wait for exit
@@ -12,9 +13,13 @@ int main() {
 	igx::FactoryContainer factory(g);
 	igx::ui::GUI gui(g);
 
-	igx::rt::TestScene testScene(gui, factory);
+	irmc::TestScene testScene(gui, factory);
 
 	igx::rt::RaytracingInterface viewportInterface(g, gui, factory, testScene);
+
+	#ifndef GENERATE_ON_CPU
+		viewportInterface.addPrepass(new irmc::MarchingCubesTask(factory));
+	#endif
 
 	g.pause();
 

@@ -14,6 +14,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 file(GLOB_RECURSE hpp "include/*.hpp")
 file(GLOB_RECURSE cpp "src/*.cpp")
 
+file(GLOB_RECURSE shaderBin "res/shaders/*.spv")
+file(GLOB_RECURSE shaderSource "res/shaders/*.comp")
+file(GLOB_RECURSE shaderInclude "res/shaders/*.glsl")
+
 set(enableIgxRtTest FALSE FORCE CACHE BOOL "Enable IGX RT test")
 set(enableIrmcTest TRUE CACHE BOOL "Enable irmc test")
 add_subdirectory(igx_raytracing)
@@ -24,6 +28,9 @@ add_library(
 	irmc STATIC
 	${hpp}
 	${cpp}
+	${shaderBin}
+	${shaderSource}
+	${shaderInclude}
 	CMakeLists.txt
 )
 
@@ -39,6 +46,31 @@ target_link_libraries(irmc PRIVATE rtigx)
 
 source_group("Headers" FILES ${hpp})
 source_group("Source" FILES ${cpp})
+source_group("Shader binaries" FILES ${shaderBin})
+source_group("Shader sources" FILES ${shaderSource})
+source_group("Shader includes" FILES ${shaderInclude})
+
+add_virtual_files(
+	DIRECTORY
+		${CMAKE_CURRENT_SOURCE_DIR}/res/shaders
+	NAME
+		shaders
+	FILES
+		${shaderBin}
+)
+
+if(doShaderRecreate)
+
+	add_custom_command(
+		TARGET irmc
+		PRE_BUILD COMMAND
+		ARGS
+		"${CMAKE_CURRENT_SOURCE_DIR}/igx_raytracing/res/shaders/compile.sh"
+		"$<$<CONFIG:debug>:-d>"
+		${shaderSource}
+	)
+
+endif()
 
 if(MSVC)
     target_compile_options(irmc PRIVATE /W4 /WX /MD /MP /wd26812 /wd4201 /EHsc /GR)

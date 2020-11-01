@@ -1,8 +1,8 @@
-#include "geometry/hexahedron.hpp"
+#include "geometry/hexon.hpp"
 
 namespace irmc {
 
-	static inline constexpr void extract(const igx::Cube &cube, Hexahedron::Vert2x2x2 &out) {
+	static inline constexpr void extract(const igx::Cube &cube, Hexon::Vert2x2x2 &out) {
 
 		Vec3f32 d = cube.max - cube.min;
 
@@ -17,14 +17,14 @@ namespace irmc {
 		std::memcpy(ptr, &t, sizeof(T));
 	}
 
-	Hexahedron::Hexahedron(const igx::Cube &cube) {
+	Hexon::Hexon(const igx::Cube &cube) {
 		extract(cube, pos);
 	}
 
-	Hexahedron::Hexahedron(const Vert8 &positions) { copy(this, positions); }
-	Hexahedron::Hexahedron(const Vert2x2x2 &pos) { copy(this, pos); }
+	Hexon::Hexon(const Vert8 &positions) { copy(this, positions); }
+	Hexon::Hexon(const Vert2x2x2 &pos) { copy(this, pos); }
 
-	Array<igx::Triangle, 12> Hexahedron::triangulate() const {
+	Array<igx::Triangle, 12> Hexon::triangulate() const {
 		
 		//LUT
 
@@ -61,9 +61,9 @@ namespace irmc {
 		return tris;
 	}
 
-	Hexahedron::Hexahedron(const Hexahedron &other) { copy(this, other); }
-	Hexahedron::Hexahedron(Hexahedron &&other) { copy(this, other); }
-	Hexahedron &Hexahedron::operator=(const Hexahedron &other) { copy(this, other); return *this; }
-	Hexahedron &Hexahedron::operator=(Hexahedron &&other) { copy(this, other); return *this; }
+	Hexon::Hexon(const Hexon &other) { copy(this, other); }
+	Hexon::Hexon(Hexon &&other) { copy(this, other); }
+	Hexon &Hexon::operator=(const Hexon &other) { copy(this, other); return *this; }
+	Hexon &Hexon::operator=(Hexon &&other) { copy(this, other); return *this; }
 
 }
